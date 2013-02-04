@@ -1,0 +1,38 @@
+function love.load()
+   character_x = 0
+   character_y = 0
+
+   playfield_height = 20
+   playfield_width = 20
+
+   playfield = {}
+
+   current_controls = {}
+   gen_controls()
+
+   load_level(levels[0])
+end
+
+EMPTY = 0
+GOAL = 1
+BLOCK = 2
+
+function load_level(level)
+   for y=1,playfield_height do
+      playfield[y] = {}
+
+      for x=1,playfield_width do
+	 playfield[y][x] = 0
+      end
+   end
+
+   playfield[level.goal_block[2]][level.goal_block[1]] = 1
+
+   character_x = level.start_tile[1]
+   character_y = level.start_tile[2]
+end
+
+   
+levels = {
+   { goal_tile = { 10, 12 }, start_tile = { 10, 8 }, blocks = { } }
+}
