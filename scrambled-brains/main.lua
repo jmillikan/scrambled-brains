@@ -1,3 +1,4 @@
+_ = require "underscore/underscore"
    
 levels = {
    { goal_tile = { 10, 12 }, start_tile = { 10, 8 }, blocks = { { 5,5 }, { 5, 15}, {15,5}, {15,15} } },
@@ -6,6 +7,8 @@ levels = {
 }
 
 function love.load()
+   GAME_STATE = 'init'
+
    playfield_height = 20
    playfield_width = 20
    tile_size = 20
@@ -16,10 +19,12 @@ function love.load()
 
    gen_controls()
 
-   current_level = 3
+   current_level = 1
    load_level(levels[current_level])
 
    screen = {screenx = 0, screeny = 0}
+
+   change_game_state('main')
 end
 
 EMPTY = 0
@@ -65,19 +70,21 @@ function gen_controls(level)
    right_button = letter_set[4]
 end
 
-function table.copy(t)
-  local t2 = {}
-  for k,v in pairs(t) do
-    t2[k] = v
-  end
-  return t2
-end
+PAUSE_BUTTON = 'p'
 
-function love.update(delta)
-   
-end
+SB = {
+   to = {
+      pause = { }
+   }
+}
 
-function love.keypressed(key, unicode)
+function SB:keypressed(key, unicode)
+   if key == PAUSE_BUTTON then
+      change_game_state('pause')
+      return
+   end
+
+   -- Note: Must be elseif because try_move changes controls
    if key == up_button then
       try_move(0,-1)
    elseif key == down_button then
@@ -110,7 +117,7 @@ function try_move(x,y)
    gen_controls()
 end
 
-function love.draw()
+function SB:draw() 
    draw_level()
    draw_character()
 end
@@ -166,5 +173,81 @@ function draw_game_rect(r)
 end
 
 function show_text(text, height)
+   love.graphics.setColor(200,200,200)
    love.graphics.printf(text, 0, 100 + height, love.graphics.getWidth(), "center")
 end
+
+function state_thunk(s)
+   return function()
+      change_game_state(s)
+      end
+end
+
+function keymap_method(map) 
+   return function(s, key, unicode) 
+      if map[key] ~= nil then
+	 map[key]()
+      end
+	  end
+end
+
+function change_game_state(new_state_name)
+   local old_state, i, new_state, n, m
+   old_state = GAME_STATES[GAME_STATE]
+   if old_state == nil or old_state.to == nil or old_state.to[new_state_name] == nil then error("Invalid state change") end
+   for i=1,#old_state.to[new_state_name] do
+      old_state.to[new_state_name][i]()
+   end
+
+   new_state = GAME_STATES[new_state_name]
+
+   for n,m in pairs(new_state) do
+      love[n] = function(...)
+	 new_state[n](new_state,...)
+      end
+   end
+
+   GAME_STATE = new_state_name
+end
+
+GAME_STATES = { 
+   init = {
+      to = {
+	 main = { }
+      }
+   },
+   main = {
+      draw = function() 
+	 show_text("Welcome to scrambled brains", 0)
+	 show_text("Press n to start", 40)
+	 show_text("Press i to see instructions", 80)
+      end,
+      keypressed = keymap_method({ n = state_thunk("game"), i = state_thunk("instructions") }),
+      to = {
+	 game = { },
+	 instructions = { }
+      }
+   },
+   instructions = {
+      draw = function()
+	 show_text("You are the blue square.", 0)
+	 show_text("Get to the green square.", 20)
+	 show_text("The controls are shown on your character - ", 40)
+	 show_text("but they change with each step.", 60)
+	 show_text("Press any key to continue.", 100)
+      end,
+      keypressed = state_thunk("main"),
+      to = {
+	 main = { }
+      }
+   },
+   game = SB,
+   pause = {
+      draw = function() show_text("** Press any key to unpause **", 0) end,
+      keypressed = state_thunk("game"),
+      to = {
+	 game = { },
+	 main = { }
+      }
+   }
+}
