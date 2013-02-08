@@ -1,8 +1,9 @@
 _ = require "underscore/underscore"
 require "SB"
+require "across_state_lines"
    
 function love.load()
-   init_ui_state('main')
+   ui_manager = init_ui_graph(UI_STATES, 'main')
 end
 
 function show_text(text, height)
@@ -12,60 +13,14 @@ end
 
 function state_thunk(s)
    return function()
-      change_ui_state(s)
+      ui_manager:change_ui_state(s)
       end
 end
 
 function keymap_method(map) 
    return function(s, key, unicode) 
-      if map[key] ~= nil then
-	 map[key]()
-      end
+      (map[key] or _.identity)()
 	  end
-end
-
-function init_ui_state(first_state)
-   local new_state = UI_STATES[first_state]
-   
-   for n,m in pairs(new_state) do
-      love[n] = function(...)
-	 new_state[n](new_state,...)
-      end
-   end
-
-   for n,m in pairs(UI_STATES) do
-      m.change_ui_state = function(self,s)
-	 change_ui_state(s)
-      end
-   end
-
-   UI_STATE = first_state
-end
-
-function change_ui_state(new_state_name)
-   local old_state, i, new_state, n, m
-
-   old_state_name = UI_STATE
-   old_state = UI_STATES[old_state_name]
-   new_state = UI_STATES[new_state_name]
-
-   if old_state == nil or old_state.to == nil or not _.include(old_state.to, new_state_name) then error("Invalid state change") end
-
-   for n,m in pairs(old_state) do
-      love[n] = nil
-   end
-
-   -- Note: This does incorrectly copy to, to_* and from_* into love as weird broken functions.
-   for n,m in pairs(new_state) do
-      love[n] = function(...)
-	 new_state[n](new_state,...)
-      end
-   end
-
-   (old_state['to_'..new_state_name] or _.identity)(old_state);
-   (new_state['from_'..old_state_name] or _.identity)(new_state)
-
-   UI_STATE = new_state_name
 end
 
 UI_STATES = { 
