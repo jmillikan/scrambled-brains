@@ -10,15 +10,7 @@ SB = {
    letter_set = {'a','s','d','f','g','h','j','k','l',';'}
 }
 
-levels = {
-   { enemies = { { 6,6 }, { 3, 3 } }, goal_tile = { 10, 12 }, lava_tiles = { {10, 10} }, start_tile = { 10, 8 }, blocks = { { 5,5 }, { 5, 15}, {15,5}, {15,15} } },
-
---[[   
-   { goal_tile = { 10, 12 }, start_tile = { 10, 8 }, blocks = { { 5,5 }, { 5, 15}, {15,5}, {15,15} } },
-   { goal_tile = { 10, 15 }, start_tile = { 10, 5 }, blocks = { { 10,10 } } },
-   { goal_tile = { 5, 5 }, start_tile = { 15, 15 }, blocks = { { 10,10 }, { 9, 11 }, { 11, 9 }, { 12, 8 }, { 8, 12 }, { 13, 7 }, { 7, 13 } } }
-   --]]
-}
+levels = { 'intro', 'blocks', 'lava', 'lab', 'more-lava', 'enemies-1', 'lab-1', 'lab-2', 'lab-3' }
 
 PAUSE_BUTTON = 'p'
 
@@ -103,38 +95,42 @@ function SB:from_main()
 end
 
 function SB:load_level(level)
-   for y=1,playfield_height do
-      playfield[y] = {}
+   local contents, length = love.filesystem.read("levels/"..level)
 
-      for x=1,playfield_width do
-	 playfield[y][x] = 0
+   playfield = {}
+   self.enemies = {}
+   
+   next_tile = contents:gmatch('[0-9]')
+   
+   -- Use a bad hash of the level to get the same key sequences each run.
+   local bshash = 0
+   local n = 0
+      
+   for i=1,20 do
+      playfield[i] = {}
+      for j=1,20 do
+	 local t = tonumber(next_tile())
+
+	 if t == CHARACTER then
+	    character_x, character_y = j,i
+	    t = EMPTY
+	 elseif t == ENEMY then
+	    table.insert(self.enemies, {j, i, {'x', 'x', 'x', 'x'}})
+	    t = EMPTY
+	 end
+	 
+	 n = n + 1
+	 bshash = bshash + (n * t)
+
+	 playfield[i][j] = t
       end
    end
 
-   playfield[level.goal_tile[2]][level.goal_tile[1]] = GOAL
+   print('bshash for ' .. level .. ': ' .. tostring(bshash))
+   math.randomseed(bshash);
 
-   for i=1,#level.blocks do
-      block_x, block_y = unpack(level.blocks[i])
-      playfield[block_y][block_x] = BLOCK
-   end
-
-   for i=1,#level.lava_tiles do
-      block_x, block_y = unpack(level.lava_tiles[i])
-      playfield[block_y][block_x] = LAVA
-   end
-
-   self.enemies = {}
-
-   for i=1,#level.enemies do
-      en_x, en_y = unpack(level.enemies[i])
-      table.insert(self.enemies, { en_x, en_y, {'x', 'x', 'x', 'x'} })
-   end
-   
    self:gen_controls()
    self:gen_enemy_controls()
-
-   character_x = level.start_tile[1]
-   character_y = level.start_tile[2]
 end
 
 function SB:keypressed(key, unicode)
@@ -145,7 +141,6 @@ function SB:keypressed(key, unicode)
 	 return
    end
 
-   -- Note: Must be elseif because try_move changes controls
    if key == self.up_button then
       self:try_move(0,-1)
    elseif key == self.down_button then
@@ -172,6 +167,13 @@ function SB:keypressed(key, unicode)
    self:gen_enemy_controls()
    self:gen_controls()
 
+   for i,e in ipairs(self.enemies) do
+      if e[1] == character_x and e[2] == character_y then
+	 self:change_ui_state('dead')
+	 return
+      end
+   end
+
    if playfield[character_y][character_x] == GOAL then
       current_level = current_level + 1
       if current_level > #levels then
@@ -179,16 +181,9 @@ function SB:keypressed(key, unicode)
 	 return 
       end
       self:load_level(levels[current_level])
-   elseif playfield[character_x][character_y] == LAVA then
+   elseif playfield[character_y][character_x] == LAVA then
       self:change_ui_state('dead')
       return
-   end
-
-   for i,e in ipairs(self.enemies) do
-      if e[1] == character_x and e[2] == character_y then
-	 self:change_ui_state('dead')
-	 return
-      end
    end
 end
 
