@@ -44,7 +44,15 @@ UI_STATES = {
       keypressed = state_thunk("main"),
       to = { 'main' }
    },
-   game = _.extend(SB, { to = {'pause', 'win'} }),
+   game = _.extend(SB, { to = {'pause', 'win', 'dead' } }),
+   dead = {
+      draw = function() 
+	 show_text("-- You have died. --", 100)
+	 show_text("Press any key to restart level.", 140)
+      end,
+      keypressed = state_thunk("game"),
+      to = { 'game' },
+   },
    pause = {
       draw = function() show_text("** Press any key to unpause **", 100) end,
       keypressed = state_thunk("game"),
