@@ -1,3 +1,4 @@
+require "underscore/underscore"
 
 function change_ui_state(self, new_state_name)
    local old_state, new_state
@@ -52,3 +53,20 @@ function init_ui_graph(state_graph, first_state_name)
    return ui_state_manager
 end
 
+-- A trio of functions for building dazzlingly bad UIs right in the state graph literal.
+function show_text(text, height)
+   love.graphics.setColor(200,200,200)
+   love.graphics.printf(text, 0, height, love.graphics.getWidth(), "center")
+end
+
+function state_thunk(s)
+   return function(self)
+      self:change_ui_state(s)
+      end
+end
+
+function keymap_method(map) 
+   return function(s, key, unicode) 
+      (map[key] or _.identity)(s)
+	  end
+end

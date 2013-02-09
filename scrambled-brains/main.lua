@@ -6,23 +6,6 @@ function love.load()
    ui_manager = init_ui_graph(UI_STATES, 'main')
 end
 
-function show_text(text, height)
-   love.graphics.setColor(200,200,200)
-   love.graphics.printf(text, 0, height, love.graphics.getWidth(), "center")
-end
-
-function state_thunk(s)
-   return function()
-      ui_manager:change_ui_state(s)
-      end
-end
-
-function keymap_method(map) 
-   return function(s, key, unicode) 
-      (map[key] or _.identity)()
-	  end
-end
-
 UI_STATES = { 
    main = {
       draw = function() 
