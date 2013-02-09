@@ -1,10 +1,8 @@
 _ = require "underscore/underscore"
-require "SB"
 require "across_state_lines"
-   
-function love.load()
-   ui_manager = init_ui_graph(UI_STATES, 'main')
-end
+
+-- object, not a class
+SB = require "SB"
 
 UI_STATES = { 
    main = {
@@ -47,3 +45,5 @@ UI_STATES = {
       to = { 'main' }
    }
 }
+
+init_ui_graph(UI_STATES, 'main')

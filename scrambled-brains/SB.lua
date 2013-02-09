@@ -1,18 +1,13 @@
 
-EMPTY = 0
-GOAL = 1
-BLOCK = 2
-CHARACTER = 3
-LAVA = 4
-ENEMY = 5
+local EMPTY, GOAL, BLOCK, CHARACTER, LAVA, ENEMY = 0,1,2,3,4,5
 
 SB = {
    letter_set = {'a','s','d','f','g','h','j','k','l',';'}
 }
 
-levels = { 'intro', 'blocks', 'lava', 'lab', 'more-lava', 'enemies-1', 'lab-1', 'lab-2', 'lab-3' }
+local levels = { 'intro', 'blocks', 'lava', 'lab', 'more-lava', 'enemies-1', 'lab-1', 'lab-2', 'lab-3' }
 
-PAUSE_BUTTON = 'p'
+local pause_button = 'p'
 
 local tile_type_colors = {}
 tile_type_colors[EMPTY] = {150,180,200}
@@ -22,22 +17,54 @@ tile_type_colors[CHARACTER] = {20,20,200}
 tile_type_colors[LAVA] = {250, 50, 80}
 tile_type_colors[ENEMY] = {200, 150, 50}
 
-function draw_tile(x,y,tile_type)
-   r,g,b = unpack(tile_type_colors[tile_type])
-   love.graphics.setColor(r,g,b)
-   draw_game_rect({width = tile_size, height=tile_size, x = (x - 1) * tile_size, y = (y - 1) * tile_size})
+local tiles = {}
+
+-- "Procedural tile generation"
+function gen_tile(tile_type)
+   local t = love.graphics.newCanvas()
+
+   love.graphics.setCanvas(t)
+   love.graphics.setStencil(function()
+			       love.graphics.setColor(255,255,255,0)
+			       love.graphics.rectangle("fill", 0, 0, tile_size, tile_size)
+			    end)
+
+   local r,g,b = unpack(tile_type_colors[tile_type])
+
+
+   love.graphics.setColor(r,g,b,200)
+   love.graphics.circle('fill',8,8,20)
+
+   love.graphics.setColor(r,g,b,240)
+   love.graphics.circle('fill',8,8,16)
+
+   love.graphics.setColor(r,g,b,255)
+   love.graphics.circle('fill',8,8,12)
+
+   -- Another option...
+   --[[
+   love.graphics.setColor(r / 1.3, g / 1.3, b / 1.3, 255)
+   love.graphics.rectangle('fill',0,0,20,20)
+
+   love.graphics.setColor(r / 1.1, g / 1.1, b / 1.1, 255)
+   love.graphics.rectangle('fill',0,0,19,19)
+   
+   love.graphics.setColor(r,g,b,255)
+   love.graphics.rectangle('fill',0,0,18,18)
+   --]]
+   
+   love.graphics.setStencil() -- is this necessary? works without...
+   love.graphics.setCanvas()
+
+   tiles[tile_type] = t
+
+   return t
 end
 
-function draw_game_rect(r)
-   love.graphics.push()
-   love.graphics.translate(screen.screenx + r.x + r.width / 2, screen.screeny + r.y + r.height / 2)
-
-   if r.angle then
-      love.graphics.rotate(r.angle)
-   end
-
-   love.graphics.rectangle("fill", - r.width / 2,  - r.height / 2, r.width, r.height)
-   love.graphics.pop()
+function draw_tile(x,y,tile_type)
+   love.graphics.setColor(255,255,255,255) -- modulate mode...
+   love.graphics.draw(tiles[tile_type] or gen_tile(tile_type),
+		      (x - 1) * tile_size, (y - 1) * tile_size)
 end
 
 function SB:gen_controls()
@@ -126,7 +153,6 @@ function SB:load_level(level)
       end
    end
 
-   print('bshash for ' .. level .. ': ' .. tostring(bshash))
    math.randomseed(bshash);
 
    self:gen_controls()
@@ -134,7 +160,7 @@ function SB:load_level(level)
 end
 
 function SB:keypressed(key, unicode)
-   if key == PAUSE_BUTTON then
+   if key == pause_button then
       self:change_ui_state('pause')
       return
    elseif not _.include(self.letter_set, key) then
@@ -240,11 +266,10 @@ function SB:draw_someone(type, x, y, controls)
    tile_x = screen.screenx + ((x - 1) * tile_size)
    tile_y = screen.screeny + ((y - 1) * tile_size)
 
-   love.graphics.setColor(200,200,200,80)
+   love.graphics.setColor(200,200,200,200)
    love.graphics.circle('fill', tile_x + tile_size / 2, tile_y + tile_size / 2, tile_size * 2)
 
    love.graphics.setColor(0,0,0)
-
    love.graphics.printf(controls[4], tile_x - 30, tile_y + 5, 20, "right")
    love.graphics.printf(controls[2], tile_x + 30, tile_y + 5, 20, "left")
    love.graphics.printf(controls[1], tile_x, tile_y - 23, 20, "center")
@@ -252,3 +277,5 @@ function SB:draw_someone(type, x, y, controls)
 
    draw_tile(x,y,type)
 end
+
+return SB
