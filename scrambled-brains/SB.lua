@@ -1,12 +1,13 @@
 
-local EMPTY, GOAL, BLOCK, CHARACTER, LAVA, ENEMY = 0,1,2,3,4,5,6
+-- FYI, this set represents 2 different things (map setup - XSHUFFLER - vs drawn tiles - SHUFFLER)
+local EMPTY, GOAL, BLOCK, CHARACTER, LAVA, ENEMY, SHUFFLER, XSHUFFLER, YSHUFFLER, XYSHUFFLER = 0,1,2,3,4,5,6,7,8,9
 local UP, DOWN, LEFT, RIGHT = 1,2,3,4
 
 SB = {
    letter_set = {'a','s','d','f','g','h','j','k','l',';'}
 }
 
-local levels = { 'intro', 'blocks', 'lava', 'lab', 'more-lava', 'enemies-1', 'lab-1', 'lab-2', 'lab-3' }
+local levels = { 'intro', 'blocks', 'lava', 'lab', 'more-lava', 'enemies-1', 'lab-1', 'shufflers', 'lab-2', 'shufflers-2', 'lab-3' }
 
 local pause_button = 'p'
 
@@ -17,8 +18,11 @@ tile_type_colors[BLOCK] = {50,0,0}
 tile_type_colors[CHARACTER] = {20,20,200}
 tile_type_colors[LAVA] = {250, 50, 80}
 tile_type_colors[ENEMY] = {200, 150, 50}
+tile_type_colors[SHUFFLER] = {180, 150, 50}
 
 local tiles = {}
+
+local shuffle_timeout = 0.7
 
 -- "Procedural tile generation"
 function gen_tile(tile_type)
@@ -115,6 +119,7 @@ function SB:load_level(level)
 
    playfield = {}
    self.enemies = {}
+   self.shufflers = {}
    
    next_tile = contents:gmatch('[0-9]')
    
@@ -122,9 +127,9 @@ function SB:load_level(level)
    local bshash = 0
    local n = 0
       
-   for i=1,20 do
+   for i=1,playfield_height do
       playfield[i] = {}
-      for j=1,20 do
+      for j=1,playfield_width do
 	 local t = tonumber(next_tile())
 
 	 if t == CHARACTER then
@@ -133,8 +138,17 @@ function SB:load_level(level)
 	 elseif t == ENEMY then
 	    table.insert(self.enemies, {j, i, {'x', 'x', 'x', 'x'}})
 	    t = EMPTY
+	 elseif t == XSHUFFLER then
+	    table.insert(self.shufflers, {j, i, {1,0}})
+	    t = EMPTY
+	 elseif t == YSHUFFLER then
+	    table.insert(self.shufflers, {j, i, {0,-1}})
+	    t = EMPTY
+	 elseif t == XYSHUFFLER then
+	    table.insert(self.shufflers, {j, i, {1, 1}})
+	    t = EMPTY
 	 end
-	 
+
 	 n = n + 1
 	 bshash = bshash + (n * t)
 
@@ -142,10 +156,16 @@ function SB:load_level(level)
       end
    end
 
-   math.randomseed(bshash);
+   math.randomseed(bshash)
+
+   self.til_shuffle = shuffle_timeout
 
    self:gen_controls()
    self:gen_enemy_controls()
+end
+
+function SB:from_dead() 
+   self:load_level(levels[current_level])
 end
 
 function SB:keypressed(key, unicode)
@@ -181,8 +201,20 @@ function SB:keypressed(key, unicode)
 
    self:gen_enemy_controls()
    self:gen_controls()
+   
+   self:check_everything()
+   -- Note: check_everything may change the state.
+end
 
+function SB:check_everything()
    for i,e in ipairs(self.enemies) do
+      if e[1] == character_x and e[2] == character_y then
+	 self:change_ui_state('dead')
+	 return
+      end
+   end
+
+   for i,e in ipairs(self.shufflers) do
       if e[1] == character_x and e[2] == character_y then
 	 self:change_ui_state('dead')
 	 return
@@ -202,8 +234,41 @@ function SB:keypressed(key, unicode)
    end
 end
 
-function SB:from_dead() 
-   self:load_level(levels[current_level])
+function SB:update(delta)
+   self.til_shuffle = self.til_shuffle - delta
+
+   if self.til_shuffle <= 0 then
+      for i,s in ipairs(self.shufflers) do
+	 local x,y,movement = unpack(s)
+	 local move_x,move_y = unpack(movement)
+
+	 -- Handling x then y will cause y bounces off corners.
+
+	 if self:valid_move(x + move_x, y) then
+	    x = x + move_x
+	 else
+	    move_x = -move_x
+	    if self:valid_move(x + move_x, y) then
+	       x = x + move_x
+	    end
+	 end
+
+	 if self:valid_move(x, y + move_y) then
+	    y = y + move_y
+	 else
+	    move_y = -move_y
+	    if self:valid_move(x, y + move_y) then
+	       y = y + move_y
+	    end
+	 end
+	    
+	 self.shufflers[i] = {x, y, {move_x, move_y}}
+      end
+      
+      self.til_shuffle = self.til_shuffle + shuffle_timeout
+   end
+
+   SB:check_everything()
 end
 
 function SB:try_move(x,y) 
@@ -215,7 +280,7 @@ function SB:try_move(x,y)
    end
 end
 
-function SB:valid_move(x,y)
+function SB:valid_move(new_x, new_y)
    return (new_x > 0 and new_x <= playfield_width and
 	   new_y > 0 and new_y <= playfield_height and
 	   playfield[new_y][new_x] ~= BLOCK)
@@ -240,6 +305,10 @@ function SB:draw_enemies()
    for i,e in ipairs(self.enemies) do
       self:draw_someone(ENEMY, e[1], e[2], e[3])
    end
+
+   for i,e in ipairs(self.shufflers) do
+      self:draw_someone(SHUFFLER, e[1], e[2])
+   end
 end
 
 function SB:draw_level()
@@ -254,14 +323,16 @@ function SB:draw_someone(type, x, y, controls)
    tile_x = screen.screenx + ((x - 1) * tile_size)
    tile_y = screen.screeny + ((y - 1) * tile_size)
 
-   love.graphics.setColor(200,200,200,200)
-   love.graphics.circle('fill', tile_x + tile_size / 2, tile_y + tile_size / 2, tile_size * 2)
-
-   love.graphics.setColor(0,0,0)
-   love.graphics.printf(controls[LEFT], tile_x - 30, tile_y + 5, 20, "right")
-   love.graphics.printf(controls[RIGHT], tile_x + 30, tile_y + 5, 20, "left")
-   love.graphics.printf(controls[UP], tile_x, tile_y - 23, 20, "center")
-   love.graphics.printf(controls[DOWN], tile_x, tile_y + 28, 20, "center")
+   if controls then
+      love.graphics.setColor(200,200,200,200)
+      love.graphics.circle('fill', tile_x + tile_size / 2, tile_y + tile_size / 2, tile_size * 2)
+   
+      love.graphics.setColor(0,0,0)
+      love.graphics.printf(controls[LEFT], tile_x - 30, tile_y + 5, 20, "right")
+      love.graphics.printf(controls[RIGHT], tile_x + 30, tile_y + 5, 20, "left")
+      love.graphics.printf(controls[UP], tile_x, tile_y - 23, 20, "center")
+      love.graphics.printf(controls[DOWN], tile_x, tile_y + 28, 20, "center")
+   end
 
    draw_tile(x,y,type)
 end
