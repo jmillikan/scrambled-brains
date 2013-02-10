@@ -1,5 +1,6 @@
 
-local EMPTY, GOAL, BLOCK, CHARACTER, LAVA, ENEMY = 0,1,2,3,4,5
+local EMPTY, GOAL, BLOCK, CHARACTER, LAVA, ENEMY = 0,1,2,3,4,5,6
+local UP, DOWN, LEFT, RIGHT = 1,2,3,4
 
 SB = {
    letter_set = {'a','s','d','f','g','h','j','k','l',';'}
@@ -31,7 +32,6 @@ function gen_tile(tile_type)
 
    local r,g,b = unpack(tile_type_colors[tile_type])
 
-
    love.graphics.setColor(r,g,b,200)
    love.graphics.circle('fill',8,8,20)
 
@@ -56,32 +56,16 @@ function gen_tile(tile_type)
    love.graphics.setStencil() -- is this necessary? works without...
    love.graphics.setCanvas()
 
-   tiles[tile_type] = t
+   -- started these at zero, then built levels...
+   tiles[tile_type + 1] = t
 
    return t
 end
 
 function draw_tile(x,y,tile_type)
    love.graphics.setColor(255,255,255,255) -- modulate mode...
-   love.graphics.draw(tiles[tile_type] or gen_tile(tile_type),
+   love.graphics.draw(tiles[tile_type + 1] or gen_tile(tile_type),
 		      (x - 1) * tile_size, (y - 1) * tile_size)
-end
-
-function SB:gen_controls()
-   local t
-   local ls = self.letter_set
-
-   for i=1,4 do
-      selected = math.random(#ls - i + 1)
-      t = ls[i]
-      ls[i] = ls[selected]
-      ls[selected] = t
-   end
-
-   self.up_button = ls[1]
-   self.down_button = ls[2]
-   self.left_button = ls[3]
-   self.right_button = ls[4]
 end
 
 function SB:randomize_letter_set(n)
@@ -95,13 +79,18 @@ function SB:randomize_letter_set(n)
    end
 end
 
+function SB:gen_controls()
+   self:randomize_letter_set(4)
+
+   self.controls = _.slice(self.letter_set,1,4)
+end
+
 function SB:gen_enemy_controls()
    for i,e in ipairs(self.enemies) do
 
       self:randomize_letter_set(4)
-      local ls = self.letter_set
 
-      e[3] = { ls[1], ls[2], ls[3], ls[4] }
+      e[3] = _.slice(self.letter_set, 1, 4)
    end
 end
 
@@ -167,25 +156,25 @@ function SB:keypressed(key, unicode)
 	 return
    end
 
-   if key == self.up_button then
+   if key == self.controls[UP] then
       self:try_move(0,-1)
-   elseif key == self.down_button then
+   elseif key == self.controls[DOWN] then
       self:try_move(0,1)
-   elseif key == self.left_button then
+   elseif key == self.controls[LEFT] then
       self:try_move(-1,0)
-   elseif key == self.right_button then
+   elseif key == self.controls[RIGHT] then
       self:try_move(1,0)
    end
 
    for i,e in ipairs(self.enemies) do
       local e_controls = e[3]
-      if key == e_controls[1] then
+      if key == e_controls[UP] then
 	 self:try_enemy_move(i,0,-1)
-      elseif key == e_controls[3] then
+      elseif key == e_controls[DOWN] then
 	 self:try_enemy_move(i,0,1)
-      elseif key == e_controls[4] then
+      elseif key == e_controls[LEFT] then
 	 self:try_enemy_move(i,-1,0)
-      elseif key == e_controls[2] then
+      elseif key == e_controls[RIGHT] then
 	 self:try_enemy_move(i,1,0)
       end
    end
@@ -244,8 +233,7 @@ end
 function SB:draw() 
    self:draw_level()
    self:draw_enemies()
-   self:draw_someone(CHARACTER, character_x, character_y, 
-		     { self.up_button, self.right_button, self.down_button, self.left_button })
+   self:draw_someone(CHARACTER, character_x, character_y, self.controls)
 end
 
 function SB:draw_enemies()
@@ -270,10 +258,10 @@ function SB:draw_someone(type, x, y, controls)
    love.graphics.circle('fill', tile_x + tile_size / 2, tile_y + tile_size / 2, tile_size * 2)
 
    love.graphics.setColor(0,0,0)
-   love.graphics.printf(controls[4], tile_x - 30, tile_y + 5, 20, "right")
-   love.graphics.printf(controls[2], tile_x + 30, tile_y + 5, 20, "left")
-   love.graphics.printf(controls[1], tile_x, tile_y - 23, 20, "center")
-   love.graphics.printf(controls[3], tile_x, tile_y + 28, 20, "center")
+   love.graphics.printf(controls[LEFT], tile_x - 30, tile_y + 5, 20, "right")
+   love.graphics.printf(controls[RIGHT], tile_x + 30, tile_y + 5, 20, "left")
+   love.graphics.printf(controls[UP], tile_x, tile_y - 23, 20, "center")
+   love.graphics.printf(controls[DOWN], tile_x, tile_y + 28, 20, "center")
 
    draw_tile(x,y,type)
 end
