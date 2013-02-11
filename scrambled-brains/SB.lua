@@ -1,13 +1,13 @@
 
 -- FYI, this set represents 2 different things (map setup - XSHUFFLER - vs drawn tiles - SHUFFLER)
-local EMPTY, GOAL, BLOCK, CHARACTER, LAVA, ENEMY, SHUFFLER, XSHUFFLER, YSHUFFLER, XYSHUFFLER = 0,1,2,3,4,5,6,7,8,9
+local EMPTY, GOAL, BLOCK, CHARACTER, LAVA, ENEMY, SHUFFLER, XSHUFFLER, YSHUFFLER, SEEKER, XYSHUFFLER = 0,1,2,3,4,5,6,7,8,9,10
 local UP, DOWN, LEFT, RIGHT = 1,2,3,4
 
 SB = {
    letter_set = {'a','s','d','f','g','h','j','k','l',';'}
 }
 
-local levels = { 'intro', 'blocks', 'lava', 'lab', 'more-lava', 'enemies-1', 'lab-1', 'shufflers', 'lab-2', 'shufflers-2', 'lab-3' }
+local levels = { 'intro', 'blocks', 'lava', 'lab', 'seekers', 'more-lava', 'enemies-1', 'lab-1', 'seeker-trap', 'shufflers', 'lab-2', 'shufflers-2', 'lab-3' }
 
 local pause_button = 'p'
 
@@ -19,6 +19,7 @@ tile_type_colors[CHARACTER] = {20,20,200}
 tile_type_colors[LAVA] = {250, 50, 80}
 tile_type_colors[ENEMY] = {200, 150, 50}
 tile_type_colors[SHUFFLER] = {180, 150, 50}
+tile_type_colors[SEEKER] = {200, 0, 0}
 
 local tiles = {}
 
@@ -120,6 +121,7 @@ function SB:load_level(level)
    playfield = {}
    self.enemies = {}
    self.shufflers = {}
+   self.seekers = {}
    
    next_tile = contents:gmatch('[0-9]')
    
@@ -146,6 +148,9 @@ function SB:load_level(level)
 	    t = EMPTY
 	 elseif t == XYSHUFFLER then
 	    table.insert(self.shufflers, {j, i, {1, 1}})
+	    t = EMPTY
+	 elseif t == SEEKER then
+	    table.insert(self.seekers, {j, i})
 	    t = EMPTY
 	 end
 
@@ -199,6 +204,50 @@ function SB:keypressed(key, unicode)
       end
    end
 
+   for i,e in ipairs(self.seekers) do
+      local x,y = e[1], e[2]
+      local xdiff, ydiff = math.abs(x - character_x), math.abs(y - character_y)
+
+      -- Make the "best possible" 1x OR 1y movement toward the player...
+
+      new_x = x + (character_x - x) / xdiff
+      new_y = y + (character_y - y) / ydiff
+      x_valid = SB:valid_move(new_x, y)
+      y_valid = SB:valid_move(x, new_y)
+
+      -- Attempt 1x movement
+
+      if xdiff >= ydiff and x_valid then
+	 e[1] = new_x
+      elseif ydiff >= xdiff and y_valid then
+	 e[2] = new_y
+      elseif xdiff > 0 and x_valid then
+	 e[1] = new_x
+      elseif ydiff > 0 and y_valid then
+	 e[2] = new_y
+      end
+	 
+	 
+
+      --[[
+      if xdiff > 0 then
+	 new_x = x + (character_x - x) / xdiff
+      end
+	 
+      if ydiff > 0 then
+	 new_y = y + (character_y - y) / ydiff
+      end
+
+      if SB:valid_move(new_x, new_y) then
+	 e[1], e[2] = new_x, new_y
+      elseif xdiff > ydiff and SB:valid_move(new_x, y) then
+	 e[1] = new_x
+      elseif ydiff > 0 and SB:valid_move(x, new_y) then
+	 e[2] = new_y
+      end
+      --]]
+   end
+
    self:gen_enemy_controls()
    self:gen_controls()
    
@@ -215,6 +264,13 @@ function SB:check_everything()
    end
 
    for i,e in ipairs(self.shufflers) do
+      if e[1] == character_x and e[2] == character_y then
+	 self:change_ui_state('dead')
+	 return
+      end
+   end
+
+   for i,e in ipairs(self.seekers) do
       if e[1] == character_x and e[2] == character_y then
 	 self:change_ui_state('dead')
 	 return
@@ -308,6 +364,10 @@ function SB:draw_enemies()
 
    for i,e in ipairs(self.shufflers) do
       self:draw_someone(SHUFFLER, e[1], e[2])
+   end
+
+   for i,e in ipairs(self.seekers) do
+      self:draw_someone(SEEKER, e[1], e[2])
    end
 end
 
