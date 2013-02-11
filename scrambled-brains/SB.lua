@@ -3,11 +3,15 @@
 local EMPTY, GOAL, BLOCK, CHARACTER, LAVA, ENEMY, SHUFFLER, XSHUFFLER, YSHUFFLER, SEEKER, XYSHUFFLER = 0,1,2,3,4,5,6,7,8,9,10
 local UP, DOWN, LEFT, RIGHT = 1,2,3,4
 
-SB = {
-   letter_set = {'a','s','d','f','g','h','j','k','l',';'}
+local letter_sets = {
+   asdf = {'a', 's', 'd', 'f'},
+   homerow = {'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'}
 }
 
-local levels = { 'intro', 'blocks', 'lava', 'lab', 'seekers', 'more-lava', 'enemies-1', 'lab-1', 'seeker-trap', 'shufflers', 'lab-2', 'shufflers-2', 'lab-3' }
+SB = {}
+
+local levels = { 'intro', 'blocks', 'lava', 'lab', 'seekers', 'more-lava', 'enemies-1', 'lab-1', 'seeker-trap', 'shufflers', 'lab-2', 'the-hall', 'shufflers-2', 'lab-3' }
+local level_letters = { 'homerow', 'homerow', 'homerow', 'asdf', 'homerow', 'homerow', 'asdf', 'homerow', 'homerow', 'homerow', 'homerow', 'asdf', 'homerow', 'asdf' }
 
 local pause_button = 'p'
 
@@ -77,7 +81,7 @@ function SB:randomize_letter_set(n)
    local ls = self.letter_set
 
    for i=1,n do
-      selected = math.random(#ls - i + 1)
+      selected = math.random(#ls - i + 1) - 1 + i
       local t = ls[i]
       ls[i] = ls[selected]
       ls[selected] = t
@@ -111,12 +115,14 @@ function SB:from_main()
    playfield = {}
 
    current_level = 1
-
-   self:load_level(levels[current_level])
+   
+   self:load_current_level()
 end
 
-function SB:load_level(level)
+function SB:load_level(level, letters)
    local contents, length = love.filesystem.read("levels/"..level)
+   
+   self.letter_set = _.extend({}, letters)
 
    playfield = {}
    self.enemies = {}
@@ -170,7 +176,11 @@ function SB:load_level(level)
 end
 
 function SB:from_dead() 
-   self:load_level(levels[current_level])
+   self:load_current_level()
+end
+
+function SB:load_current_level()
+   self:load_level(levels[current_level], letter_sets[level_letters[current_level]])
 end
 
 function SB:keypressed(key, unicode)
@@ -283,7 +293,7 @@ function SB:check_everything()
 	 self:change_ui_state("win")
 	 return 
       end
-      self:load_level(levels[current_level])
+      self:load_current_level()
    elseif playfield[character_y][character_x] == LAVA then
       self:change_ui_state('dead')
       return
@@ -384,7 +394,7 @@ function SB:draw_someone(type, x, y, controls)
    tile_y = screen.screeny + ((y - 1) * tile_size)
 
    if controls then
-      love.graphics.setColor(200,200,200,200)
+      love.graphics.setColor(200,200,200,160)
       love.graphics.circle('fill', tile_x + tile_size / 2, tile_y + tile_size / 2, tile_size * 2)
    
       love.graphics.setColor(0,0,0)
