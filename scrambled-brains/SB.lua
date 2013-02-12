@@ -28,6 +28,8 @@ local levels = {
    { map = 'lava-path', keys = asdf }
 }
 
+local stats 
+
 local pause_button = 'p'
 
 local tiles = {}
@@ -193,24 +195,29 @@ function load_current_level()
    load_level(levels[current_level].map, levels[current_level].keys)
 end
 
+function die()
+   stats.deaths = stats.deaths + 1
+   SB:change_ui_state('dead')
+end
+
 function check_everything()
    for i,e in ipairs(enemies) do
       if e[1] == character_x and e[2] == character_y then
-	 SB:change_ui_state('dead')
+	 die()
 	 return
       end
    end
 
    for i,e in ipairs(shufflers) do
       if e[1] == character_x and e[2] == character_y then
-	 SB:change_ui_state('dead')
+	 die()
 	 return
       end
    end
 
    for i,e in ipairs(seekers) do
       if e[1] == character_x and e[2] == character_y then
-	 SB:change_ui_state('dead')
+	 die()
 	 return
       end
    end
@@ -223,11 +230,10 @@ function check_everything()
       end
       load_current_level()
    elseif playfield[character_y][character_x] == LAVA then
-      SB:change_ui_state('dead')
+      die()
       return
    end
 end
-
 
 function try_move(x,y) 
    new_x, new_y = character_x + x, character_y + y
@@ -235,6 +241,7 @@ function try_move(x,y)
    if valid_move(new_x, new_y) then
       character_x = character_x + x
       character_y = character_y + y
+      stats.moves = stats.moves + 1
    end
 end
 
@@ -352,6 +359,11 @@ function SB:from_main()
    current_level = 1
    
    load_current_level()
+
+   stats = {
+      deaths = 0,
+      moves = 0
+   }
 end
 
 function SB:from_dead() 
@@ -416,6 +428,10 @@ function SB:keypressed(key, unicode)
    
    check_everything()
    -- Note: check_everything may change the state.
+end
+
+function SB:stats()
+   return stats
 end
 
 return SB

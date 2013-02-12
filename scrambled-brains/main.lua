@@ -35,7 +35,11 @@ UI_STATES = {
       to = { 'game' },
    },
    pause = {
-      draw = function() show_text("** Press any key to unpause **", 100) end,
+      draw = function() 
+	 show_text("** Press any key to unpause **", 100) 
+	 show_text("Deaths: " .. tostring(SB:stats().deaths), 140)
+	 show_text("Moves: " .. tostring(SB:stats().moves), 160)
+      end,
       keypressed = state_thunk("game"),
       to = { 'game', 'main' }
    },
