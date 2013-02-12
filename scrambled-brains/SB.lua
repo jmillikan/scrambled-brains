@@ -30,7 +30,7 @@ local tiles = {}
 local shuffle_timeout = 0.7
 
 -- "Procedural tile generation"
-function gen_tile(tile_type)
+function gen_tile(tile_type, colors)
    local t = love.graphics.newCanvas()
 
    love.graphics.setCanvas(t)
@@ -39,7 +39,7 @@ function gen_tile(tile_type)
 			       love.graphics.rectangle("fill", 0, 0, tile_size, tile_size)
 			    end)
 
-   local r,g,b = unpack(tile_type_colors[tile_type])
+   local r,g,b = unpack(colors)
 
    love.graphics.setColor(r,g,b,200)
    love.graphics.circle('fill',8,8,20)
@@ -71,9 +71,47 @@ function gen_tile(tile_type)
    return t
 end
 
+function gen_someone(tile_type, colors)
+   local t = love.graphics.newCanvas()
+
+   love.graphics.setCanvas(t)
+   love.graphics.setStencil(function()
+			       love.graphics.setColor(255,255,255,0)
+			       love.graphics.rectangle("fill", 0, 0, tile_size, tile_size)
+			    end)
+
+   local r,g,b = unpack(colors)
+
+   local grey = (r + g + b) / 3
+
+   love.graphics.setColor((grey + r) / 2,(grey + g) / 2,(grey + b) / 2,255)
+   love.graphics.circle('fill',10,10,9)
+
+   love.graphics.setColor(r,g,b,255)
+   love.graphics.circle('fill',9,9,8)
+   
+   love.graphics.setStencil() -- is this necessary? works without...
+   love.graphics.setCanvas()
+
+   -- started these at zero, then built levels...
+   tiles[tile_type + 1] = t
+
+   return t
+end
+
+local tile_type_gen = {}
+tile_type_gen[EMPTY] = gen_tile
+tile_type_gen[GOAL] = gen_tile
+tile_type_gen[BLOCK] = gen_tile
+tile_type_gen[CHARACTER] = gen_someone
+tile_type_gen[LAVA] = gen_tile
+tile_type_gen[ENEMY] = gen_someone
+tile_type_gen[SHUFFLER] = gen_someone
+tile_type_gen[SEEKER] = gen_someone
+
 function draw_tile(x,y,tile_type)
    love.graphics.setColor(255,255,255,255) -- modulate mode...
-   love.graphics.draw(tiles[tile_type + 1] or gen_tile(tile_type),
+   love.graphics.draw(tiles[tile_type + 1] or (tile_type_gen[tile_type])(tile_type, tile_type_colors[tile_type]),
 		      (x - 1) * tile_size, (y - 1) * tile_size)
 end
 
