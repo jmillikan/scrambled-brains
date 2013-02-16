@@ -1,7 +1,7 @@
 -- This file creates and returns the gameplay state (SB).
 
 -- FYI, this set represents 2 different things (map setup - XSHUFFLER - vs drawn tiles - SHUFFLER)
-local EMPTY, GOAL, BLOCK, CHARACTER, LAVA, ENEMY, SHUFFLER, XSHUFFLER, YSHUFFLER, SEEKER, XYSHUFFLER = 1,2,3,4,5,6,7,8,9,10,11
+local EMPTY, GOAL, BLOCK, CHARACTER, LAVA, ENEMY, SHUFFLER, XSHUFFLER, YSHUFFLER, SEEKER, XYSHUFFLER, TRAMPLER = 1,2,3,4,5,6,7,8,9,10,11,12
 local UP, DOWN, LEFT, RIGHT = 1,2,3,4
 
 local asdf = {'a', 's', 'd', 'f'}
@@ -10,6 +10,7 @@ local homerow = {'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'}
 local SB = {}
 
 local levels = {
+   { map = 'trampler', keys = homerow },
    { map = 'intro', keys = homerow },
    { map = 'blocks', keys = homerow },
    { map = 'lava', keys = homerow },
@@ -18,8 +19,10 @@ local levels = {
    { map = 'more-lava', keys = homerow },
    { map = 'enemies-1', keys = asdf },
    { map = 'lab-1', keys = homerow },
+   { map = 'trampler', keys = homerow },
    { map = 'seeker-trap', keys = homerow },
    { map = 'lab-2', keys = asdf },
+   { map = 'trampler-wall', keys = homerow },
    { map = 'lab-3', keys = asdf },
    { map = 'shufflers', keys = homerow },
    { map = 'scrape', keys = asdf },
@@ -35,8 +38,10 @@ local pause_button = 'p'
 local tiles = {}
 
 local shuffle_timeout = 0.7
+local trample_timeout = 2.0
+local til_shuffle, til_trample
 
-function gen_map_tile(colors)
+function gen_map_tile(colors, size) -- size ignored
    local t = love.graphics.newCanvas()
 
    love.graphics.setCanvas(t)
@@ -62,13 +67,15 @@ function gen_map_tile(colors)
    return t
 end
 
-function gen_someone(colors)
+function gen_someone(colors, size)
    local t = love.graphics.newCanvas()
+
+   size = size or 1
 
    love.graphics.setCanvas(t)
    love.graphics.setStencil(function()
 			       love.graphics.setColor(255,255,255,0)
-			       love.graphics.rectangle("fill", 0, 0, tile_size, tile_size)
+			       love.graphics.rectangle("fill", 0, 0, tile_size * size, tile_size * size)
 			    end)
 
    local r,g,b = unpack(colors)
@@ -76,10 +83,10 @@ function gen_someone(colors)
    local grey = (r + g + b) / 3
 
    love.graphics.setColor((grey + r) / 2,(grey + g) / 2,(grey + b) / 2,255)
-   love.graphics.circle('fill',10,10,9)
+   love.graphics.circle('fill', 10 * size, 10 * size, 9 * size)
 
    love.graphics.setColor(r,g,b,255)
-   love.graphics.circle('fill',9,9,8)
+   love.graphics.circle('fill', 9 * size, 9 * size, 8 * size)
    
    love.graphics.setStencil() -- is this necessary? works without...
    love.graphics.setCanvas()
@@ -96,9 +103,10 @@ tile_types[LAVA] = { color = {250, 50, 80}, gen = gen_map_tile }
 tile_types[ENEMY] = { color = {200, 150, 50}, gen = gen_someone }
 tile_types[SHUFFLER] = { color = {180, 150, 50}, gen = gen_someone }
 tile_types[SEEKER] = { color = {200, 0, 0}, gen = gen_someone }
+tile_types[TRAMPLER] = { color = {200, 0, 0 }, gen = gen_someone, size = 2 }
 
 function get_tile(tile_type)
-   tiles[tile_type] = tile_types[tile_type].gen(tile_types[tile_type].color)
+   tiles[tile_type] = tile_types[tile_type].gen(tile_types[tile_type].color, tile_types[tile_type].size)
    return tiles[tile_type]
 end
 
@@ -144,8 +152,9 @@ function load_level(level, letters)
    enemies = {}
    shufflers = {}
    seekers = {}
+   tramplers = {}
    
-   next_tile = contents:gmatch('[0-9]')
+   next_tile = contents:gmatch('[0-9a-z]')
    
    -- Use a bad hash of the level to get the same key sequences each run.
    local bshash = 0
@@ -154,7 +163,7 @@ function load_level(level, letters)
    for i=1,playfield_height do
       playfield[i] = {}
       for j=1,playfield_width do
-	 local t = tonumber(next_tile()) + 1 -- >_<
+	 local t = tonumber('0x'..next_tile()) + 1 -- >_<
 
 	 if t == CHARACTER then
 	    character_x, character_y = j,i
@@ -174,6 +183,9 @@ function load_level(level, letters)
 	 elseif t == SEEKER then
 	    table.insert(seekers, {j, i})
 	    t = EMPTY
+	 elseif t == TRAMPLER then
+	    table.insert(tramplers, {j, i})
+	    t = EMPTY
 	 end
 
 	 n = n + 1
@@ -186,6 +198,7 @@ function load_level(level, letters)
    math.randomseed(bshash)
 
    til_shuffle = shuffle_timeout
+   til_trample = trample_timeout
 
    gen_controls()
    gen_enemy_controls()
@@ -200,25 +213,36 @@ function die()
    SB:change_ui_state('dead')
 end
 
+function char_at(x, y)
+   return x == character_x and y == character_y
+end
+
 function check_everything()
    for i,e in ipairs(enemies) do
-      if e[1] == character_x and e[2] == character_y then
+      if char_at(e[1], e[2]) then
 	 die()
 	 return
       end
    end
 
    for i,e in ipairs(shufflers) do
-      if e[1] == character_x and e[2] == character_y then
+      if char_at(e[1], e[2]) then
 	 die()
 	 return
       end
    end
 
    for i,e in ipairs(seekers) do
-      if e[1] == character_x and e[2] == character_y then
+      if char_at(e[1], e[2]) then
 	 die()
 	 return
+      end
+   end
+
+   for i,e in ipairs(tramplers) do
+      if char_at(e[1], e[2]) or char_at(e[1] + 1, e[2]) or
+	 char_at(e[1], e[2] + 1) or char_at(e[1] + 1, e[2] + 1) then
+	 die()
       end
    end
 
@@ -272,6 +296,10 @@ function draw_enemies()
    for i,e in ipairs(seekers) do
       draw_someone(SEEKER, e[1], e[2])
    end
+
+   for i,e in ipairs(tramplers) do
+      draw_someone(TRAMPLER, e[1], e[2])
+   end
 end
 
 function draw_level()
@@ -286,6 +314,7 @@ function draw_someone(type, x, y, controls)
    tile_x = screen.screenx + ((x - 1) * tile_size)
    tile_y = screen.screeny + ((y - 1) * tile_size)
 
+   -- specific to 1x1 enemies for now
    if controls then
       love.graphics.setColor(200,200,200,160)
       love.graphics.circle('fill', tile_x + tile_size / 2, tile_y + tile_size / 2, tile_size * 2)
@@ -300,6 +329,65 @@ function draw_someone(type, x, y, controls)
    draw_tile(x,y,type)
 end
 
+function change_playfield(x, y, tile_type)
+   if playfield[y] and playfield[y][x] then
+      playfield[y][x] = tile_type
+   end
+end
+
+function advance_tramplers()
+   for i,e in ipairs(tramplers) do
+      local x,y = e[1], e[2]
+      local center_xdiff, center_ydiff = (x + 0.5) - character_x, (y + 0.5) - character_y
+      local center_xdist, center_ydist = math.abs(center_xdiff), math.abs(center_ydiff)
+      
+      -- Make the best 1x OR 1y movement toward the player...
+      new_x = x - center_xdiff / center_xdist
+      new_y = y - center_ydiff / center_ydist
+
+      -- prefers y to x
+      if center_ydist >= center_xdist and center_ydist > 0 then
+	 e[2] = new_y
+      elseif center_xdist >= center_ydist and center_xdist > 0 then
+	 e[1] = new_x
+      end
+
+      change_playfield(e[1], e[2], EMPTY)
+      change_playfield(e[1] + 1, e[2], EMPTY)
+      change_playfield(e[1], e[2] + 1, EMPTY)
+      change_playfield(e[1] + 1, e[2] + 1, EMPTY)
+   end
+end
+
+function advance_shufflers()
+   for i,s in ipairs(shufflers) do
+      local x,y,movement = unpack(s)
+      local move_x,move_y = unpack(movement)
+
+      -- Handling x then y will cause y bounces off corners.
+
+      if valid_move(x + move_x, y) then
+	 x = x + move_x
+      else
+	 move_x = -move_x
+	 if valid_move(x + move_x, y) then
+	    x = x + move_x
+	 end
+      end
+
+      if valid_move(x, y + move_y) then
+	 y = y + move_y
+      else
+	 move_y = -move_y
+	 if valid_move(x, y + move_y) then
+	    y = y + move_y
+	 end
+      end
+      
+      shufflers[i] = {x, y, {move_x, move_y}}
+   end
+end
+
 function SB:draw() 
    draw_level()
    draw_enemies()
@@ -307,39 +395,22 @@ function SB:draw()
 end
 
 function SB:update(delta)
-   -- Delta will be wrong when returning from other states. (Unhandled.)
+   -- Delta will be wrong when returning from other states. (TODO.)
 
    til_shuffle = til_shuffle - delta
 
    if til_shuffle <= 0 then
-      for i,s in ipairs(shufflers) do
-	 local x,y,movement = unpack(s)
-	 local move_x,move_y = unpack(movement)
-
-	 -- Handling x then y will cause y bounces off corners.
-
-	 if valid_move(x + move_x, y) then
-	    x = x + move_x
-	 else
-	    move_x = -move_x
-	    if valid_move(x + move_x, y) then
-	       x = x + move_x
-	    end
-	 end
-
-	 if valid_move(x, y + move_y) then
-	    y = y + move_y
-	 else
-	    move_y = -move_y
-	    if valid_move(x, y + move_y) then
-	       y = y + move_y
-	    end
-	 end
-	    
-	 shufflers[i] = {x, y, {move_x, move_y}}
-      end
+      advance_shufflers()
       
       til_shuffle = til_shuffle + shuffle_timeout
+   end
+
+   til_trample = til_trample - delta
+   
+   if til_trample <= 0 then
+      advance_tramplers()
+      
+      til_trample = til_trample + trample_timeout
    end
 
    check_everything()
@@ -405,21 +476,21 @@ function SB:keypressed(key, unicode)
       local x,y = e[1], e[2]
       local xdiff, ydiff = math.abs(x - character_x), math.abs(y - character_y)
 
-      -- Make the "best possible" 1x OR 1y movement toward the player...
+      -- Make the best 1x OR 1y movement toward the player...
       new_x = x + (character_x - x) / xdiff
       new_y = y + (character_y - y) / ydiff
       x_valid = valid_move(new_x, y)
       y_valid = valid_move(x, new_y)
 
-      -- Currently prefers x to y (opposite of daleks)
-      if xdiff >= ydiff and x_valid then
-	 e[1] = new_x
-      elseif ydiff >= xdiff and y_valid then
+      -- prefers y to x
+      if ydiff >= xdiff and y_valid then
 	 e[2] = new_y
-      elseif xdiff > 0 and x_valid then
+      elseif xdiff >= ydiff and x_valid then
 	 e[1] = new_x
       elseif ydiff > 0 and y_valid then
 	 e[2] = new_y
+      elseif xdiff > 0 and x_valid then
+	 e[1] = new_x
       end
    end
 
