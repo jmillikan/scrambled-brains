@@ -10,7 +10,6 @@ local homerow = {'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'}
 local SB = {}
 
 local levels = {
-   { map = 'trampler', keys = homerow },
    { map = 'intro', keys = homerow },
    { map = 'blocks', keys = homerow },
    { map = 'lava', keys = homerow },
