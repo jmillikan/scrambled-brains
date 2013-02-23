@@ -1,8 +1,7 @@
 _ = require "underscore/underscore"
 require "across_state_lines"
 
--- object, not a class
-SB = require "SB"
+sb = require "SB"
 
 UI_STATES = { 
    main = {
@@ -25,7 +24,7 @@ UI_STATES = {
       keypressed = state_thunk("main"),
       to = { 'main' }
    },
-   game = _.extend(SB, { to = {'pause', 'win', 'dead' } }),
+   game = _.extend(sb, { to = {'pause', 'win', 'dead' } }),
    dead = {
       draw = function() 
 	 show_text("-- You have died. --", 100)

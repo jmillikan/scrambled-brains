@@ -1,13 +1,13 @@
--- This file creates and returns the gameplay state (SB).
+-- This file creates and returns the gameplay state (sb).
 
 -- FYI, this set represents 2 different things (map setup - XSHUFFLER - vs drawn tiles - SHUFFLER)
-local EMPTY, GOAL, BLOCK, CHARACTER, LAVA, ENEMY, SHUFFLER, XSHUFFLER, YSHUFFLER, SEEKER, XYSHUFFLER, TRAMPLER = 1,2,3,4,5,6,7,8,9,10,11,12
+local EMPTY, GOAL, BLOCK, CHARACTER, LAVA, ENEMY, SHUFFLER, XSHUFFLER, YSHUFFLER, SEEKER, XYSHUFFLER, TRAMPLER, REVXSHUFFLER = 1,2,3,4,5,6,7,8,9,10,11,12,13
 local UP, DOWN, LEFT, RIGHT = 1,2,3,4
 
 local asdf = {'a', 's', 'd', 'f'}
 local homerow = {'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'}
 
-local SB = {}
+local sb = {}
 
 local levels = {
    { map = 'intro', keys = homerow },
@@ -19,15 +19,15 @@ local levels = {
    { map = 'enemies-1', keys = asdf },
    { map = 'lab-1', keys = homerow },
    { map = 'trampler', keys = homerow },
+   { map = 'shufflers', keys = homerow },
    { map = 'seeker-trap', keys = homerow },
-   { map = 'lab-2', keys = asdf },
+   { map = 'shufflers-2', keys = homerow },
    { map = 'trampler-wall', keys = homerow },
    { map = 'lab-3', keys = asdf },
-   { map = 'shufflers', keys = homerow },
+   { map = 'shuffler-shuffle', keys = homerow },
    { map = 'scrape', keys = asdf },
    { map = 'the-hall', keys = asdf },
-   { map = 'shufflers-2', keys = homerow },
-   { map = 'lava-path', keys = asdf }
+   { map = 'lava-path', keys = homerow }
 }
 
 local stats 
@@ -153,7 +153,7 @@ function load_level(level, letters)
    seekers = {}
    tramplers = {}
    
-   next_tile = contents:gmatch('[0-9a-z]')
+   next_tile = contents:gmatch('[0-9a-f]')
    
    -- Use a bad hash of the level to get the same key sequences each run.
    local bshash = 0
@@ -172,6 +172,9 @@ function load_level(level, letters)
 	    t = EMPTY
 	 elseif t == XSHUFFLER then
 	    table.insert(shufflers, {j, i, {1,0}})
+	    t = EMPTY
+	 elseif t == REVXSHUFFLER then -- >_<
+	    table.insert(shufflers, {j, i, {-1,0}})
 	    t = EMPTY
 	 elseif t == YSHUFFLER then
 	    table.insert(shufflers, {j, i, {0,-1}})
@@ -209,7 +212,7 @@ end
 
 function die()
    stats.deaths = stats.deaths + 1
-   SB:change_ui_state('dead')
+   sb:change_ui_state('dead')
 end
 
 function char_at(x, y)
@@ -248,7 +251,7 @@ function check_everything()
    if playfield[character_y][character_x] == GOAL then
       current_level = current_level + 1
       if current_level > #levels then
-	 SB:change_ui_state("win")
+	 sb:change_ui_state("win")
 	 return 
       end
       load_current_level()
@@ -310,8 +313,8 @@ function draw_level()
 end
 
 function draw_someone(type, x, y, controls)
-   tile_x = screen.screenx + ((x - 1) * tile_size)
-   tile_y = screen.screeny + ((y - 1) * tile_size)
+   local tile_x = screen.screenx + ((x - 1) * tile_size)
+   local tile_y = screen.screeny + ((y - 1) * tile_size)
 
    -- specific to 1x1 enemies for now
    if controls then
@@ -341,8 +344,8 @@ function advance_tramplers()
       local center_xdist, center_ydist = math.abs(center_xdiff), math.abs(center_ydiff)
       
       -- Make the best 1x OR 1y movement toward the player...
-      new_x = x - center_xdiff / center_xdist
-      new_y = y - center_ydiff / center_ydist
+      local new_x = x - center_xdiff / center_xdist
+      local new_y = y - center_ydiff / center_ydist
 
       -- prefers y to x
       if center_ydist >= center_xdist and center_ydist > 0 then
@@ -387,77 +390,7 @@ function advance_shufflers()
    end
 end
 
-function SB:draw() 
-   draw_level()
-   draw_enemies()
-   draw_someone(CHARACTER, character_x, character_y, controls)
-end
-
-function SB:update(delta)
-   -- Delta will be wrong when returning from other states. (TODO.)
-
-   til_shuffle = til_shuffle - delta
-
-   if til_shuffle <= 0 then
-      advance_shufflers()
-      
-      til_shuffle = til_shuffle + shuffle_timeout
-   end
-
-   til_trample = til_trample - delta
-   
-   if til_trample <= 0 then
-      advance_tramplers()
-      
-      til_trample = til_trample + trample_timeout
-   end
-
-   check_everything()
-end
-
-function SB:from_main() 
-   playfield_height = 20
-   playfield_width = 20
-   tile_size = 20
-
-   character = {x = 0, y = 0, width = tile_size, height = tile_size}
-
-   screen = {screenx = 0, screeny = 0}
-
-   playfield = {}
-
-   current_level = 1
-   
-   load_current_level()
-
-   stats = {
-      deaths = 0,
-      moves = 0
-   }
-end
-
-function SB:from_dead() 
-   load_current_level()
-end
-
-function SB:keypressed(key, unicode)
-   if key == pause_button then
-      self:change_ui_state('pause')
-      return
-   elseif not _.include(letter_set, key) then
-	 return
-   end
-
-   if key == controls[UP] then
-      try_move(0,-1)
-   elseif key == controls[DOWN] then
-      try_move(0,1)
-   elseif key == controls[LEFT] then
-      try_move(-1,0)
-   elseif key == controls[RIGHT] then
-      try_move(1,0)
-   end
-
+function advance_enemies(key)
    for i,e in ipairs(enemies) do
       local e_controls = e[3]
       if key == e_controls[UP] then
@@ -470,7 +403,9 @@ function SB:keypressed(key, unicode)
 	 try_enemy_move(i,1,0)
       end
    end
+end
 
+function advance_seekers()
    for i,e in ipairs(seekers) do
       local x,y = e[1], e[2]
       local xdiff, ydiff = math.abs(x - character_x), math.abs(y - character_y)
@@ -492,6 +427,82 @@ function SB:keypressed(key, unicode)
 	 e[1] = new_x
       end
    end
+end
+
+
+function sb:draw() 
+   draw_level()
+   draw_enemies()
+   draw_someone(CHARACTER, character_x, character_y, controls)
+end
+
+function sb:update(delta)
+   -- Delta will be wrong when returning from other states. (TODO.)
+
+   til_shuffle = til_shuffle - delta
+
+   if til_shuffle <= 0 then
+      advance_shufflers()
+      
+      til_shuffle = til_shuffle + shuffle_timeout
+   end
+
+   til_trample = til_trample - delta
+   
+   if til_trample <= 0 then
+      advance_tramplers()
+      
+      til_trample = til_trample + trample_timeout
+   end
+
+   check_everything()
+end
+
+function sb:from_main() 
+   playfield_height = 20
+   playfield_width = 20
+   tile_size = 20
+
+   character = {x = 0, y = 0, width = tile_size, height = tile_size}
+
+   screen = {screenx = 0, screeny = 0}
+
+   playfield = {}
+
+   current_level = 1
+   
+   load_current_level()
+
+   stats = {
+      deaths = 0,
+      moves = 0
+   }
+end
+
+function sb:from_dead() 
+   load_current_level()
+end
+
+function sb:keypressed(key, unicode)
+   if key == pause_button then
+      self:change_ui_state('pause')
+      return
+   elseif not _.include(letter_set, key) then
+	 return
+   end
+
+   if key == controls[UP] then
+      try_move(0,-1)
+   elseif key == controls[DOWN] then
+      try_move(0,1)
+   elseif key == controls[LEFT] then
+      try_move(-1,0)
+   elseif key == controls[RIGHT] then
+      try_move(1,0)
+   end
+
+   advance_enemies(key)
+   advance_seekers()
 
    gen_enemy_controls()
    gen_controls()
@@ -500,8 +511,8 @@ function SB:keypressed(key, unicode)
    -- Note: check_everything may change the state.
 end
 
-function SB:stats()
+function sb:stats()
    return stats
 end
 
-return SB
+return sb
