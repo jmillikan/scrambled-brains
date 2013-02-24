@@ -7,7 +7,7 @@ local UP, DOWN, LEFT, RIGHT = 1,2,3,4
 local asdf = {'a', 's', 'd', 'f'}
 local homerow = {'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'}
 
-local sb = {}
+sb = {}
 
 local levels = {
    { map = 'intro', keys = homerow },
@@ -255,6 +255,8 @@ function check_everything()
 	 return 
       end
       load_current_level()
+
+      sb:change_ui_state('present_level')
    elseif playfield[character_y][character_x] == LAVA then
       die()
       return
@@ -477,6 +479,8 @@ function sb:from_main()
       deaths = 0,
       moves = 0
    }
+
+   self:change_ui_state('present_level')
 end
 
 function sb:from_dead() 
@@ -515,4 +519,57 @@ function sb:stats()
    return stats
 end
 
-return sb
+local countdown
+
+function draw_key(l, x)
+   local left = x
+   local top = 50
+
+   local rad = 5
+
+   local width = 30
+   local height = 30
+
+   love.graphics.setColor(200,200,200,255)
+   love.graphics.rectangle('fill', left, top + rad, width, height - rad * 2)
+   love.graphics.rectangle('fill', left + rad, top, width - rad * 2, height)
+   love.graphics.circle('fill', left + rad, top + rad, rad)
+   love.graphics.circle('fill', left + width - rad, top + rad, rad)
+   love.graphics.circle('fill', left + rad, top + height - rad, rad)
+   love.graphics.circle('fill', left + width - rad, top + height - rad, rad)
+
+   love.graphics.setColor(0,0,0,255)
+   love.graphics.printf(l, x, top + 10, width, "center")
+end
+
+present_level = {
+   from_game = function(self)
+      countdown = 2.0
+   end,
+   update = function(self, delta)
+      countdown = countdown - delta
+      if countdown <= 0 then
+	 self:change_ui_state('game')
+      end
+   end,
+   draw = function(self)
+      local margin = 30
+
+      sb:draw()
+      love.graphics.setColor(0,0,0,100)
+      love.graphics.rectangle('fill', 0, 0, love.graphics.getWidth(), 100)
+      love.graphics.setColor(255,255,255,255)
+      love.graphics.printf(levels[current_level].map, margin, 20, love.graphics.getWidth() - margin * 2, "center")
+
+      local x = margin
+      for i,l in ipairs({'a','s','d','f','g','h','j','k','l',';'}) do
+	 if _.include(letter_set,l) then
+	    draw_key(l, x)
+	 end
+	 x = x + 35
+      end
+      
+   end
+}
+
+return sb, present_level

@@ -20,10 +20,9 @@ function change_ui_state(self, new_state_name)
       end
    end
 
-   (old_state['to_'..new_state_name] or _.identity)(old_state);
+   (old_state['to_'..new_state_name] or _.identity)(old_state)
+   self.current_state_name = new_state_name;
    (new_state['from_'..old_state_name] or _.identity)(new_state)
-
-   self.current_state_name = new_state_name
 end
 
 -- "constructor"

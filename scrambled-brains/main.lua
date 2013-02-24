@@ -1,7 +1,7 @@
 _ = require "underscore/underscore"
 require "across_state_lines"
 
-sb = require "SB"
+require "SB"
 
 UI_STATES = { 
    main = {
@@ -24,7 +24,8 @@ UI_STATES = {
       keypressed = state_thunk("main"),
       to = { 'main' }
    },
-   game = _.extend(sb, { to = {'pause', 'win', 'dead' } }),
+   present_level = _.extend(present_level, { to = {'game'} }),
+   game = _.extend(sb, { to = {'present_level', 'pause', 'win', 'dead' } }),
    dead = {
       draw = function() 
 	 show_text("-- You have died. --", 100)
@@ -36,8 +37,8 @@ UI_STATES = {
    pause = {
       draw = function() 
 	 show_text("** Press any key to unpause **", 100) 
-	 show_text("Deaths: " .. tostring(SB:stats().deaths), 140)
-	 show_text("Moves: " .. tostring(SB:stats().moves), 160)
+	 show_text("Deaths: " .. tostring(sb:stats().deaths), 140)
+	 show_text("Moves: " .. tostring(sb:stats().moves), 160)
       end,
       keypressed = state_thunk("game"),
       to = { 'game', 'main' }
