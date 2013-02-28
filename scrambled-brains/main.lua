@@ -3,6 +3,12 @@ require "across_state_lines"
 
 require "SB"
 
+SETTINGS = {
+   foreground = {200,200,200,255},
+   background = {0,0,0,255},
+   overlay = {0,0,0,100}
+}
+
 UI_STATES = { 
    main = {
       draw = function() 

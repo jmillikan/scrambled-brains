@@ -54,7 +54,7 @@ end
 
 -- A trio of functions for building dazzlingly bad UIs right in the state graph literal.
 function show_text(text, height)
-   love.graphics.setColor(200,200,200)
+   love.graphics.setColor(unpack(SETTINGS and SETTINGS.foreground or {255,100,100,255}))
    love.graphics.printf(text, 0, height, love.graphics.getWidth(), "center")
 end
 

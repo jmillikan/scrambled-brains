@@ -40,6 +40,10 @@ local shuffle_timeout = 0.7
 local trample_timeout = 2.0
 local til_shuffle, til_trample
 
+function foreground_color() 
+   love.graphics.setColor(unpack(SETTINGS and SETTINGS.foreground or {255,100,100,255}))
+end
+
 function gen_map_tile(colors, size) -- size ignored
    local t = love.graphics.newCanvas()
 
@@ -556,9 +560,9 @@ present_level = {
       local margin = 30
 
       game:draw()
-      love.graphics.setColor(0,0,0,100)
+      love.graphics.setColor(unpack(SETTINGS and SETTINGS.overlay or {255,100,100,100}))
       love.graphics.rectangle('fill', 0, 0, love.graphics.getWidth(), 100)
-      love.graphics.setColor(255,255,255,255)
+      foreground_color()
       love.graphics.printf(levels[current_level].map, margin, 20, love.graphics.getWidth() - margin * 2, "center")
 
       local x = margin
@@ -587,7 +591,7 @@ rebind_keys = {
    end,
    draw = function()
       local margin = 30
-      love.graphics.setColor(255,255,255,255)
+      foreground_color()
       love.graphics.printf('Mash keys, then press escape.', 0, 20, love.graphics.getWidth(), "center")
       
       local x = margin
@@ -613,7 +617,7 @@ rebind_keys_2 = {
    end,
    draw = function()
       local margin = 30
-      love.graphics.setColor(255,255,255,255)
+      foreground_color()
       love.graphics.printf('Mash left hand keys, then press escape.', 0, 20, love.graphics.getWidth(), "center")
       
       local x = margin
