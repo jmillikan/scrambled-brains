@@ -1,4 +1,4 @@
--- This file creates and returns the gameplay state (sb).
+-- exports states 'game' and 'present_level', game is started by coming from state 'main' and moves to states 'dead' and 'pause'
 
 -- FYI, this set represents 2 different things (map setup - XSHUFFLER - vs drawn tiles - SHUFFLER)
 local EMPTY, GOAL, BLOCK, CHARACTER, LAVA, ENEMY, SHUFFLER, XSHUFFLER, YSHUFFLER, SEEKER, XYSHUFFLER, TRAMPLER, REVXSHUFFLER = 1,2,3,4,5,6,7,8,9,10,11,12,13
@@ -7,7 +7,7 @@ local UP, DOWN, LEFT, RIGHT = 1,2,3,4
 local asdf = {'a', 's', 'd', 'f'}
 local homerow = {'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'}
 
-sb = {}
+game = {}
 
 local levels = {
    { map = 'intro', keys = homerow },
@@ -212,7 +212,7 @@ end
 
 function die()
    stats.deaths = stats.deaths + 1
-   sb:change_ui_state('dead')
+   game:change_ui_state('dead')
 end
 
 function char_at(x, y)
@@ -245,18 +245,19 @@ function check_everything()
       if char_at(e[1], e[2]) or char_at(e[1] + 1, e[2]) or
 	 char_at(e[1], e[2] + 1) or char_at(e[1] + 1, e[2] + 1) then
 	 die()
+	 return
       end
    end
 
    if playfield[character_y][character_x] == GOAL then
       current_level = current_level + 1
       if current_level > #levels then
-	 sb:change_ui_state("win")
+	 game:change_ui_state("win")
 	 return 
       end
       load_current_level()
 
-      sb:change_ui_state('present_level')
+      game:change_ui_state('present_level')
    elseif playfield[character_y][character_x] == LAVA then
       die()
       return
@@ -432,13 +433,13 @@ function advance_seekers()
 end
 
 
-function sb:draw() 
+function game:draw() 
    draw_level()
    draw_enemies()
    draw_someone(CHARACTER, character_x, character_y, controls)
 end
 
-function sb:update(delta)
+function game:update(delta)
    -- Delta will be wrong when returning from other states. (TODO.)
 
    til_shuffle = til_shuffle - delta
@@ -460,7 +461,7 @@ function sb:update(delta)
    check_everything()
 end
 
-function sb:from_main() 
+function game:from_main() 
    playfield_height = 20
    playfield_width = 20
    tile_size = 20
@@ -483,11 +484,11 @@ function sb:from_main()
    self:change_ui_state('present_level')
 end
 
-function sb:from_dead() 
+function game:from_dead() 
    load_current_level()
 end
 
-function sb:keypressed(key, unicode)
+function game:keypressed(key, unicode)
    if key == pause_button then
       self:change_ui_state('pause')
       return
@@ -515,22 +516,21 @@ function sb:keypressed(key, unicode)
    -- Note: check_everything may change the state.
 end
 
-function sb:stats()
+function game:stats()
    return stats
 end
 
 local countdown
 
-function draw_key(l, x)
-   local left = x
-   local top = 50
-
+function draw_key(l, left, top, included)
    local rad = 5
 
    local width = 30
    local height = 30
+   local back_color = included and {200,200,200,255} or {100,100,100,255}
+   local key_color = included and {0,0,0,255} or {50,50,50,255}
 
-   love.graphics.setColor(200,200,200,255)
+   love.graphics.setColor(unpack(back_color))
    love.graphics.rectangle('fill', left, top + rad, width, height - rad * 2)
    love.graphics.rectangle('fill', left + rad, top, width - rad * 2, height)
    love.graphics.circle('fill', left + rad, top + rad, rad)
@@ -538,8 +538,8 @@ function draw_key(l, x)
    love.graphics.circle('fill', left + rad, top + height - rad, rad)
    love.graphics.circle('fill', left + width - rad, top + height - rad, rad)
 
-   love.graphics.setColor(0,0,0,255)
-   love.graphics.printf(l, x, top + 10, width, "center")
+   love.graphics.setColor(unpack(key_color))
+   love.graphics.printf(l, left, top + 10, width, "center")
 end
 
 present_level = {
@@ -555,21 +555,71 @@ present_level = {
    draw = function(self)
       local margin = 30
 
-      sb:draw()
+      game:draw()
       love.graphics.setColor(0,0,0,100)
       love.graphics.rectangle('fill', 0, 0, love.graphics.getWidth(), 100)
       love.graphics.setColor(255,255,255,255)
       love.graphics.printf(levels[current_level].map, margin, 20, love.graphics.getWidth() - margin * 2, "center")
 
       local x = margin
-      for i,l in ipairs({'a','s','d','f','g','h','j','k','l',';'}) do
-	 if _.include(letter_set,l) then
-	    draw_key(l, x)
-	 end
+
+      -- todo: localization...
+      for i,l in ipairs(homerow) do
+	 draw_key(l, x, 60, _.include(letter_set,l))
 	 x = x + 35
       end
       
    end
 }
 
-return sb, present_level
+rebind_keys = {
+   from_main = function()
+      for i = 1, #homerow do homerow[i]=nil end
+   end,
+   keypressed = function(self,key,unicode) 
+      if key == 'escape' then
+	 self:change_ui_state('rebind_keys_2')
+      else
+	  if not _.include(homerow, key) and key ~= 'p' then
+	     table.insert(homerow, key)
+	  end
+      end
+   end,
+   draw = function()
+      local margin = 30
+      love.graphics.setColor(255,255,255,255)
+      love.graphics.printf('Mash keys, then press escape.', 0, 20, love.graphics.getWidth(), "center")
+      
+      local x = margin
+      for i,l in ipairs(homerow) do
+	 draw_key(l, x, 100, true)
+	 x = x + 35
+      end
+   end
+}
+
+rebind_keys_2 = {
+   from_rebind_keys = function()
+      for i = 1, #asdf do asdf[i]=nil end
+   end,
+   keypressed = function(self,key,unicode) 
+      if key == 'escape' then
+	 self:change_ui_state('main')
+      else
+	  if not _.include(asdf, key) and key ~= 'p' and #asdf < 4 then
+	     table.insert(asdf, key)
+	  end
+      end
+   end,
+   draw = function()
+      local margin = 30
+      love.graphics.setColor(255,255,255,255)
+      love.graphics.printf('Mash left hand keys, then press escape.', 0, 20, love.graphics.getWidth(), "center")
+      
+      local x = margin
+      for i,l in ipairs(asdf) do
+	 draw_key(l, x, 100, true)
+	 x = x + 35
+      end
+   end
+}
