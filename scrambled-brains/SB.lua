@@ -83,6 +83,7 @@ function gen_someone(colors, size)
 
    local r,g,b = unpack(colors)
 
+   -- "Half" grey circle (ignoring channel weighting...)
    local grey = (r + g + b) / 3
 
    love.graphics.setColor((grey + r) / 2,(grey + g) / 2,(grey + b) / 2,255)

@@ -32,6 +32,8 @@ UI_STATES = {
       keypressed = state_thunk("main"),
       to = { 'main' }
    },
+   rebind_keys = _.extend(rebind_keys, { to = {'rebind_keys_2'} }),
+   rebind_keys_2 = _.extend(rebind_keys_2, { to = {'main'} }),
    present_level = _.extend(present_level, { to = {'game'} }),
    game = _.extend(game, { to = {'present_level', 'pause', 'win', 'dead' } }),
    dead = {
@@ -43,21 +45,20 @@ UI_STATES = {
       to = { 'game' },
    },
    pause = {
-      draw = function() 
-	 show_text("** Press any key to unpause **", 100) 
+      draw = function()
+	 show_text("Press p to unpause", 100) 
+	 show_text("Press escape to quit", 120) 
 	 show_text("Deaths: " .. tostring(game:stats().deaths), 140)
 	 show_text("Moves: " .. tostring(game:stats().moves), 160)
       end,
-      keypressed = state_thunk("game"),
+      keypressed = keymap_method({ escape = state_thunk('main'), p = state_thunk('game') }),
       to = { 'game', 'main' }
    },
    win = {
       draw = function() show_text("You've won! Press any key.", 100) end,
       keypressed = state_thunk("main"),
       to = { 'main' }
-   },
-   rebind_keys = _.extend(rebind_keys, { to = {'rebind_keys_2'} }),
-   rebind_keys_2 = _.extend(rebind_keys_2, { to = {'main'} })
+   }
 }
 
 init_ui_graph(UI_STATES, 'main')
