@@ -48,10 +48,11 @@ function gen_map_tile(colors, size) -- size ignored
    local t = love.graphics.newCanvas()
 
    love.graphics.setCanvas(t)
-   love.graphics.setStencil(function()
-			       love.graphics.setColor(255,255,255,0)
-			       love.graphics.rectangle("fill", 0, 0, tile_size, tile_size)
-			    end)
+   love.graphics.stencil(function()
+			    love.graphics.setColor(255,255,255,0)
+			    love.graphics.rectangle("fill", 0, 0, tile_size, tile_size)
+			 end)
+   love.graphics.setStencilTest("greater", 0)
 
    local r,g,b = unpack(colors)
 
@@ -64,7 +65,7 @@ function gen_map_tile(colors, size) -- size ignored
    love.graphics.setColor(r,g,b,255)
    love.graphics.circle('fill',8,8,12)
 
-   love.graphics.setStencil() -- is this necessary? works without...
+   love.graphics.setStencilTest() -- is this necessary? works without...
    love.graphics.setCanvas()
 
    return t
@@ -76,10 +77,11 @@ function gen_someone(colors, size)
    size = size or 1
 
    love.graphics.setCanvas(t)
-   love.graphics.setStencil(function()
-			       love.graphics.setColor(255,255,255,0)
-			       love.graphics.rectangle("fill", 0, 0, tile_size * size, tile_size * size)
-			    end)
+   love.graphics.stencil(function()
+			    love.graphics.setColor(255,255,255,0)
+			    love.graphics.rectangle("fill", 0, 0, tile_size * size, tile_size * size)
+			 end)
+   love.graphics.setStencilTest("greater", 0)
 
    local r,g,b = unpack(colors)
 
@@ -92,7 +94,7 @@ function gen_someone(colors, size)
    love.graphics.setColor(r,g,b,255)
    love.graphics.circle('fill', 9 * size, 9 * size, 8 * size)
    
-   love.graphics.setStencil() -- is this necessary? works without...
+   love.graphics.setStencilTest() -- is this necessary? works without...
    love.graphics.setCanvas()
 
    return t
